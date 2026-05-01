@@ -5,7 +5,7 @@ from utils.plotter import plot_osnr_sweep, plot_ber_sweep
 
 LAUNCH_POWERS_DBM = [-5, -3, -1, 0, 1, 3, 5]
 LINK_LOSS_DB = 5.0
-OSNR_THRESHOLD_DB = 14.0
+OSNR_THRESHOLD_DB = 15.0
 BER_THRESHOLD = 0.05
 
 logger = setup_logger()
