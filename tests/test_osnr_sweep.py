@@ -5,11 +5,10 @@ from mock.mock_instrument import MockOpticalInstrument
 from utils.logger import setup_logger
 from utils.plotter import plot_osnr_sweep, plot_ber_sweep
 
-# --- CORE UPDATE: Dynamic Configuration Loading ---
 def load_config():
     """
-    Loads test parameters from the root config.yaml file.
-    Uses absolute paths to ensure reliability across different environments (local vs CI).
+    Dynamically loads the configuration from the root directory.
+    Ensures absolute path resolution for compatibility with local and CI environments.
     """
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     config_path = os.path.join(base_dir, 'config.yaml')
@@ -17,18 +16,21 @@ def load_config():
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
-# Initialize parameters from Config
+# Load configuration and map nested keys to variables
 config = load_config()
-LAUNCH_POWERS_DBM = config['sweep_range']
-LINK_LOSS_DB = config['link_loss']
-OSNR_THRESHOLD_DB = config['osnr_threshold'] 
-BER_THRESHOLD = config['ber_threshold']
+
+# Accessing nested keys as per your config.yaml structure
+# Accessing nested keys from config.yaml
+LAUNCH_POWERS_DBM = config['sweep']['launch_powers_dbm']
+LINK_LOSS_DB = config['instrument']['link_loss_db']
+OSNR_THRESHOLD_DB = config['thresholds']['osnr_db'] 
+BER_THRESHOLD = config['thresholds']['ber']
 
 logger = setup_logger()
 
 @pytest.fixture
 def instrument():
-    """Fixture to manage instrument connection lifecycle."""
+    """Fixture to manage instrument connection lifecycle using config parameters."""
     inst = MockOpticalInstrument(link_loss_db=LINK_LOSS_DB)
     inst.connect()
     logger.info(f"Instrument connected | link_loss={LINK_LOSS_DB} dB")
@@ -37,7 +39,7 @@ def instrument():
     logger.info("Instrument disconnected")
 
 def test_osnr_sweep():
-    """Full OSNR sweep across launch powers with automated plotting."""
+    """Execution of OSNR sweep with pass/fail validation based on config thresholds."""
     inst = MockOpticalInstrument(link_loss_db=LINK_LOSS_DB)
     inst.connect()
     
@@ -49,7 +51,7 @@ def test_osnr_sweep():
         osnr = inst.measure_osnr()
         osnr_values.append(osnr)
         
-        # Verdict logic is now synced with config.yaml
+        # Validation logic synced with config.yaml
         status = "PASS" if osnr >= OSNR_THRESHOLD_DB else "FAIL"
         logger.info(f"OSNR sweep | power={power} dBm | OSNR={osnr} dB | {status}")
         
@@ -62,7 +64,7 @@ def test_osnr_sweep():
     assert not failures, f"OSNR failed threshold at: {failures}"
 
 def test_ber_sweep():
-    """Full BER sweep across launch powers with automated plotting."""
+    """Execution of BER sweep with pass/fail validation based on config thresholds."""
     inst = MockOpticalInstrument(link_loss_db=LINK_LOSS_DB)
     inst.connect()
 
@@ -74,7 +76,7 @@ def test_ber_sweep():
         ber = inst.measure_ber()
         ber_values.append(ber)
         
-        # Verdict logic is now synced with config.yaml
+        # Validation logic synced with config.yaml
         status = "PASS" if ber <= BER_THRESHOLD else "FAIL"
         logger.info(f"BER sweep | power={power} dBm | BER={ber:.2e} | {status}")
         
