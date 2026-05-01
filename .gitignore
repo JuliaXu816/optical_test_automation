@@ -1,0 +1,13 @@
+# Python bytecode and cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Test outputs - Ignore these to keep GitHub clean
+logs/
+reports/
+
+# Environment and local config
+.env
+venv/
+.vscode/
