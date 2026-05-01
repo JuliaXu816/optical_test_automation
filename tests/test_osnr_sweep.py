@@ -1,17 +1,34 @@
 import pytest
+import yaml
+import os
 from mock.mock_instrument import MockOpticalInstrument
 from utils.logger import setup_logger
 from utils.plotter import plot_osnr_sweep, plot_ber_sweep
 
-LAUNCH_POWERS_DBM = [-5, -3, -1, 0, 1, 3, 5]
-LINK_LOSS_DB = 5.0
-OSNR_THRESHOLD_DB = 15.0
-BER_THRESHOLD = 0.12
+# --- CORE UPDATE: Dynamic Configuration Loading ---
+def load_config():
+    """
+    Loads test parameters from the root config.yaml file.
+    Uses absolute paths to ensure reliability across different environments (local vs CI).
+    """
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config_path = os.path.join(base_dir, 'config.yaml')
+    
+    with open(config_path, 'r') as f:
+        return yaml.safe_load(f)
+
+# Initialize parameters from Config
+config = load_config()
+LAUNCH_POWERS_DBM = config['sweep_range']
+LINK_LOSS_DB = config['link_loss']
+OSNR_THRESHOLD_DB = config['osnr_threshold'] 
+BER_THRESHOLD = config['ber_threshold']
 
 logger = setup_logger()
 
 @pytest.fixture
 def instrument():
+    """Fixture to manage instrument connection lifecycle."""
     inst = MockOpticalInstrument(link_loss_db=LINK_LOSS_DB)
     inst.connect()
     logger.info(f"Instrument connected | link_loss={LINK_LOSS_DB} dB")
@@ -20,7 +37,7 @@ def instrument():
     logger.info("Instrument disconnected")
 
 def test_osnr_sweep():
-    """Full OSNR sweep across launch powers with plot"""
+    """Full OSNR sweep across launch powers with automated plotting."""
     inst = MockOpticalInstrument(link_loss_db=LINK_LOSS_DB)
     inst.connect()
     
@@ -31,18 +48,21 @@ def test_osnr_sweep():
         inst.set_launch_power(power)
         osnr = inst.measure_osnr()
         osnr_values.append(osnr)
+        
+        # Verdict logic is now synced with config.yaml
         status = "PASS" if osnr >= OSNR_THRESHOLD_DB else "FAIL"
         logger.info(f"OSNR sweep | power={power} dBm | OSNR={osnr} dB | {status}")
+        
         if osnr < OSNR_THRESHOLD_DB:
             failures.append((power, osnr))
 
     inst.disconnect()
     plot_osnr_sweep(LAUNCH_POWERS_DBM, osnr_values, OSNR_THRESHOLD_DB)
     
-    assert not failures, f"OSNR below threshold at: {failures}"
+    assert not failures, f"OSNR failed threshold at: {failures}"
 
 def test_ber_sweep():
-    """Full BER sweep across launch powers with plot"""
+    """Full BER sweep across launch powers with automated plotting."""
     inst = MockOpticalInstrument(link_loss_db=LINK_LOSS_DB)
     inst.connect()
 
@@ -53,12 +73,15 @@ def test_ber_sweep():
         inst.set_launch_power(power)
         ber = inst.measure_ber()
         ber_values.append(ber)
+        
+        # Verdict logic is now synced with config.yaml
         status = "PASS" if ber <= BER_THRESHOLD else "FAIL"
         logger.info(f"BER sweep | power={power} dBm | BER={ber:.2e} | {status}")
+        
         if ber > BER_THRESHOLD:
             failures.append((power, ber))
 
     inst.disconnect()
     plot_ber_sweep(LAUNCH_POWERS_DBM, ber_values, BER_THRESHOLD)
 
-    assert not failures, f"BER above threshold at: {failures}"
+    assert not failures, f"BER failed threshold at: {failures}"
