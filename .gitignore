@@ -6,6 +6,7 @@ __pycache__/
 # Test outputs - Ignore these to keep GitHub clean
 logs/
 reports/
+*.db
 
 # Environment and local config
 .env
